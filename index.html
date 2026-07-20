@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Web Games Collection</title>
 <style>
   * {
@@ -50,11 +50,11 @@
     border-bottom: 1px solid var(--border-default);
     padding: 32px 24px;
     margin-bottom: 48px;
-    transition: box-shadow 0.3s ease;
+    transition: box-shadow 0.3s ease, padding 0.3s ease, margin 0.3s ease;
   }
 
   header.scrolled {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   }
 
   .header-content {
@@ -279,13 +279,55 @@
     font-size: 0.85rem;
   }
 
-  /* Responsive tweaks */
+  /* =========================================
+     MOBILE OPTIMIZATIONS
+     ========================================= */
   @media (max-width: 640px) {
-    header { padding: 24px 16px; margin-bottom: 32px; }
-    .container { padding: 0 16px 64px; }
-    .grid { gap: 16px; }
-    .card { min-height: 240px; padding: 24px 20px 20px; }
-    h1 { font-size: 2rem; }
+    header {
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    /* Hide decorative elements on mobile to save vertical space */
+    .badge, 
+    .subtitle {
+      display: none;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .search-container {
+      max-width: 100%;
+    }
+
+    .search-input {
+      padding: 12px 14px 12px 42px;
+      font-size: 16px; /* Prevents iOS Safari auto-zoom on focus */
+      border-radius: 10px;
+    }
+
+    .search-icon {
+      left: 14px;
+      font-size: 0.9rem;
+    }
+
+    .container {
+      padding: 0 16px 64px;
+    }
+
+    .grid {
+      gap: 16px;
+      grid-template-columns: 1fr; /* Force single column on very small screens if desired, or keep auto-fit */
+    }
+
+    .card {
+      min-height: auto;
+      padding: 24px 20px 20px;
+    }
   }
 </style>
 </head>
@@ -306,6 +348,7 @@
           id="searchInput" 
           placeholder="Search games..."
           autocomplete="off"
+          inputmode="search"
         />
       </div>
     </div>
