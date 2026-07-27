@@ -9,6 +9,7 @@
   html, body {
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
+    touch-action: none; /* Prevents browser-level scrolling/zooming entirely */
   }
   body {
     background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2a 100%);
@@ -22,7 +23,6 @@
     min-height: 100vh;
     min-height: -webkit-fill-available;
     overflow-x: hidden;
-    touch-action: manipulation;
   }
   h1 {
     margin-bottom: 8px;
@@ -117,6 +117,7 @@
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
     transition: all 0.2s ease;
     text-transform: uppercase;
+    touch-action: manipulation;
   }
   #toggle-controls:hover {
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(0, 255, 255, 0.05));
@@ -209,6 +210,10 @@
         inset 0 -2px 4px rgba(0,0,0,0.2),
         0 8px 20px rgba(0,0,0,0.5);
       position: relative;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     .screen-bezel {
@@ -289,9 +294,10 @@
       font-size: 14px;
       cursor: pointer;
       box-shadow: inset 0 -2px 3px rgba(0,0,0,0.5);
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
+      touch-action: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -webkit-touch-callout: none !important;
       outline: none;
       padding: 0;
       line-height: 1;
@@ -383,9 +389,10 @@
         inset 0 2px 3px rgba(255,255,255,0.2),
         0 2px 4px rgba(0,0,0,0.3);
       cursor: pointer;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
+      touch-action: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -webkit-touch-callout: none !important;
       outline: none;
       padding: 0;
       line-height: 1;
@@ -432,9 +439,10 @@
       border-radius: 10px;
       cursor: pointer;
       box-shadow: inset 0 -2px 3px rgba(0,0,0,0.4);
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
+      touch-action: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -webkit-touch-callout: none !important;
       outline: none;
       font-family: 'Courier New', monospace;
     }
@@ -630,7 +638,7 @@
 <script>
 (() => {
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false }); // Optimize canvas rendering
   const W = canvas.width, H = canvas.height;
 
   const scoreEl = document.getElementById('score');
@@ -651,7 +659,9 @@
   projSpeedSlider.oninput = () => projSpeedVal.textContent = projSpeedSlider.value;
   maxHealthSlider.oninput = () => {
     maxHealthVal.textContent = maxHealthSlider.value;
-    if (player.health > maxHealth) player.health = maxHealth;
+    if (player && player.health > parseInt(maxHealthSlider.value)) {
+      player.health = parseInt(maxHealthSlider.value);
+    }
   };
 
   // Settings toggle
@@ -672,7 +682,10 @@
   });
   window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-  // === GAME BOY MOBILE CONTROLS ===
+  // Prevent all context menus globally to stop long-press menus on mobile
+  document.addEventListener('contextmenu', (e) => e.preventDefault(), { passive: false });
+
+  // === GAME BOY MOBILE CONTROLS (Pointer Events for robust multi-touch & long-press) ===
   function setupMobileControls() {
     const buttons = document.querySelectorAll('.dpad-btn, .ab-btn, .ss-btn');
     buttons.forEach(btn => {
@@ -680,7 +693,7 @@
       const action = btn.dataset.action;
 
       const press = (e) => {
-        e.preventDefault();
+        e.preventDefault(); // Critical for preventing long-press context menus
         initAudio();
         if (key) touchKeys[key] = true;
         if (action === 'restart') resetGame();
@@ -693,14 +706,16 @@
         btn.classList.remove('pressed');
       };
 
-      btn.addEventListener('touchstart', press, {passive: false});
-      btn.addEventListener('touchend', release, {passive: false});
-      btn.addEventListener('touchcancel', release, {passive: false});
-      btn.addEventListener('mousedown', press);
-      btn.addEventListener('mouseup', release);
-      btn.addEventListener('mouseleave', release);
-      btn.addEventListener('contextmenu', (e) => e.preventDefault());
+      // Pointer events handle touch, mouse, and stylus uniformly and fix long-press dropouts
+      btn.addEventListener('pointerdown', press, { passive: false });
+      btn.addEventListener('pointerup', release, { passive: false });
+      btn.addEventListener('pointercancel', release, { passive: false });
+      btn.addEventListener('pointerleave', release, { passive: false });
+      btn.addEventListener('contextmenu', (e) => e.preventDefault(), { passive: false });
     });
+    
+    // Ensure audio context starts on first interaction anywhere
+    document.addEventListener('pointerdown', initAudio, { once: true });
   }
 
   function isDown(key) {
@@ -772,7 +787,9 @@
   }
 
   function createParticles(x, y, color, count = 15) {
+    // PERFORMANCE: Hard cap particles to prevent mobile frame drops
     for (let i = 0; i < count; i++) {
+      if (particles.length >= 400) break;
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
       const speed = Math.random() * 4 + 2;
       particles.push({
@@ -788,6 +805,8 @@
   }
 
   function createFloatingText(x, y, text, color = '#ff0', size = 16) {
+    // PERFORMANCE: Cap floating texts
+    if (floatingTexts.length >= 30) floatingTexts.shift();
     floatingTexts.push({
       x, y,
       text,
@@ -962,16 +981,7 @@
     if (player.invuln > 0) player.invuln -= dt;
 
     if (player.thrust > 0.3 && Math.random() < player.thrust) {
-      particles.push({
-        x: player.x - 5,
-        y: player.y + player.h / 2 + (Math.random() - 0.5) * 6,
-        vx: -Math.random() * 3 - 2,
-        vy: (Math.random() - 0.5) * 2,
-        life: 1,
-        decay: 0.05,
-        size: Math.random() * 3 + 2,
-        color: '#ff0'
-      });
+      createParticles(player.x - 5, player.y + player.h / 2 + (Math.random() - 0.5) * 6, '#ff0', 1);
     }
 
     const shootCooldown = hasPowerup('RAPID') ? 80 : 180;
@@ -1236,16 +1246,12 @@
     if (hasPowerup('SHIELD')) {
       ctx.strokeStyle = '#0ff';
       ctx.lineWidth = 3;
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = '#0ff';
+      ctx.globalAlpha = 0.6;
       ctx.beginPath();
       ctx.arc(player.x + player.w / 2, player.y + player.h / 2, 30, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.shadowBlur = 0;
+      ctx.globalAlpha = flicker ? 0.4 : 1.0;
     }
-
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#0ff';
 
     const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.w, player.y);
     gradient.addColorStop(0, '#0aa');
@@ -1261,7 +1267,6 @@
     ctx.closePath();
     ctx.fill();
 
-    ctx.shadowBlur = 0;
     ctx.fillStyle = '#fff';
     ctx.fillRect(player.x + 18, player.y + player.h / 2 - 3, 8, 6);
 
@@ -1277,9 +1282,6 @@
 
   function drawEnemy(e) {
     ctx.save();
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = e.color;
-    
     const pulse = Math.sin(e.pulse) * 0.2 + 0.8;
     ctx.globalAlpha = pulse;
     
@@ -1300,10 +1302,8 @@
     ctx.closePath();
     ctx.fill();
     
-    ctx.shadowBlur = 0;
     ctx.fillStyle = '#fff';
     ctx.fillRect(e.x + e.w - 12, e.y + e.h / 2 - 2, 5, 4);
-    
     ctx.restore();
   }
 
@@ -1311,9 +1311,6 @@
     if (!boss) return;
     
     ctx.save();
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = '#f00';
-    
     const pulse = Math.sin(boss.pulse) * 0.1 + 0.9;
     ctx.globalAlpha = pulse;
     
@@ -1334,7 +1331,6 @@
     ctx.closePath();
     ctx.fill();
     
-    ctx.shadowBlur = 0;
     ctx.fillStyle = '#ff0';
     ctx.beginPath();
     ctx.arc(boss.x + boss.w - 30, boss.y + boss.h / 2, 10, 0, Math.PI * 2);
@@ -1368,12 +1364,9 @@
     const pulse = Math.sin(p.pulse) * 0.2 + 0.8;
     ctx.globalAlpha = pulse;
     
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = p.info.color;
     ctx.fillStyle = p.info.color;
     ctx.fillRect(p.x, p.y, p.w, p.h);
     
-    ctx.shadowBlur = 0;
     ctx.fillStyle = '#000';
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
@@ -1403,12 +1396,9 @@
     ctx.fillStyle = gradient;
     ctx.fillRect(bx, by, bw * pct, bh);
     
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = color;
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.strokeRect(bx, by, bw, bh);
-    ctx.shadowBlur = 0;
     
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.lineWidth = 1;
@@ -1425,12 +1415,8 @@
   }
 
   function render() {
-    ctx.save();
-    
-    const bgGradient = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W);
-    bgGradient.addColorStop(0, '#0a0a1a');
-    bgGradient.addColorStop(1, '#000');
-    ctx.fillStyle = bgGradient;
+    // PERFORMANCE: alpha: false in getContext means we can just clearRect instead of redrawing background
+    ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
 
     for (const s of stars) {
@@ -1440,14 +1426,14 @@
     }
     ctx.globalAlpha = 1;
 
+    // PERFORMANCE: Use 'lighter' composite operation for neon glow instead of heavy shadowBlur
+    ctx.globalCompositeOperation = 'lighter';
     for (const p of particles) {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = p.color;
       ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
     }
-    ctx.shadowBlur = 0;
+    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
 
     for (const p of projectiles) {
@@ -1461,8 +1447,8 @@
     }
     ctx.globalAlpha = 1;
 
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = '#ff0';
+    // PERFORMANCE: Additive blending for projectiles
+    ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = '#ff0';
     for (const p of projectiles) {
       ctx.fillRect(p.x, p.y, p.w, p.h);
@@ -1470,22 +1456,17 @@
       ctx.fillRect(p.x + p.w - 3, p.y, 3, p.h);
       ctx.fillStyle = '#ff0';
     }
-    ctx.shadowBlur = 0;
+    ctx.globalCompositeOperation = 'source-over';
 
     for (const p of enemyProjectiles) {
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = p.color;
       ctx.fillStyle = p.color;
       ctx.beginPath();
       ctx.arc(p.x + p.w / 2, p.y + p.h / 2, p.w / 2, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.shadowBlur = 0;
 
     for (const e of enemies) drawEnemy(e);
-    
     drawBoss();
-    
     for (const p of powerups) drawPowerup(p);
 
     if (!gameOver) drawPlayer();
@@ -1494,27 +1475,16 @@
       ctx.globalAlpha = t.life;
       ctx.fillStyle = t.color;
       ctx.font = `bold ${t.size}px Courier New`;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = t.color;
       ctx.fillText(t.text, t.x, t.y);
     }
-    ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
 
     drawHealthBar();
-
-    ctx.restore();
-
-    scoreEl.textContent = score;
-    highScoreEl.textContent = highScore;
-    healthEl.textContent = player.health;
-    comboEl.textContent = `x${combo}`;
-    comboEl.style.color = combo > 1 ? '#ff0' : '#0ff';
   }
 
   let lastTime = performance.now();
   function loop(now) {
-    const dt = now - lastTime;
+    const dt = Math.min(now - lastTime, 50); // Cap dt to prevent huge jumps if tab is inactive
     lastTime = now;
     update(now, dt);
     render();
