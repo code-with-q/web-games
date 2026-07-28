@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Neon Ping Pong</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #06060f;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #fff;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { position: absolute; inset: 0; display: block; }
+  #ui {
+    position: absolute; top: 0; left: 0; right: 0;
+    pointer-events: none; text-align: center;
+    padding: max(16px, env(safe-area-inset-top)) 20px 0;
+  }
+  #score {
+    font-size: clamp(40px, 10vw, 72px);
+    font-weight: 200;
+    letter-spacing: 6px;
+    color: #e8ecff;
+    text-shadow: 0 0 24px rgba(122, 162, 255, 0.55), 0 0 48px rgba(192, 132, 252, 0.3);
+    transition: transform 0.15s ease;
+  }
+  #score.pop { transform: scale(1.25); }
+  #roundInfo {
+    font-size: clamp(12px, 3vw, 16px);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    margin-top: 8px;
+  }
+  #combo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(32px, 8vw, 56px);
+    font-weight: 100;
+    letter-spacing: 4px;
+    color: #ffd700;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  #combo.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  #hint {
+    position: absolute; bottom: max(24px, env(safe-area-inset-bottom));
+    left: 0; right: 0; text-align: center;
+    font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+    color: rgba(255,255,255,0.45); pointer-events: none;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.45; } 50% { opacity: 0.8; } }
+  #overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(20,20,50,0.85) 0%, rgba(6,6,15,0.95) 70%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: opacity 0.4s ease;
+    z-index: 10;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #overlay h1 {
+    font-size: clamp(36px, 9vw, 72px);
+    font-weight: 100;
+    letter-spacing: 10px;
+    margin-bottom: 16px;
+    background: linear-gradient(90deg, #7aa2ff 0%, #c084fc 50%, #ff7aa2 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 40px rgba(192, 132, 252, 0.3);
+  }
+  #overlay p {
+    font-size: clamp(12px, 3.2vw, 15px);
+    opacity: 0.6;
+    margin-bottom: 32px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+  #finalScore {
+    font-size: clamp(56px, 14vw, 96px);
+    font-weight: 100;
+    margin: 8px 0 24px;
+    color: #c084fc;
+    text-shadow: 0 0 30px rgba(192, 132, 252, 0.6);
+    display: none;
+  }
+  .difficulty-select {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .diff-btn {
+    padding: 10px 24px;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+  }
+  .diff-btn:hover {
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+  }
+  .diff-btn.active {
+    background: rgba(192, 132, 252, 0.2);
+    border-color: #c084fc;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(192, 132, 252, 0.4);
+  }
+  #startBtn {
+    padding: 14px 44px;
+    font-size: 14px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+  }
+  #startBtn:hover, #startBtn:active {
+    background: rgba(255,255,255,0.08);
+    border-color: #c084fc;
+    color: #fff;
+    box-shadow: 0 0 30px rgba(192, 132, 252, 0.4);
+    transform: translateY(-1px);
+  }
+  #powerupIndicator {
+    position: absolute;
+    bottom: max(80px, calc(env(safe-area-inset-bottom) + 60px));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .pu-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .pu-icon.active {
+    opacity: 1;
+    animation: puFloat 2s ease-in-out infinite;
+  }
+  @keyframes puFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+</style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="ui">
+    <div id="score">0</div>
+    <div id="roundInfo">Round 1</div>
+  </div>
+  <div id="combo"></div>
+  <div id="hint">Swipe to move</div>
+  <div id="powerupIndicator"></div>
+  <div id="overlay">
+    <h1 id="title">PING PONG</h1>
+    <p id="subtitle">Swipe · Tap · Survive</p>
+    <div class="difficulty-select">
+      <button class="diff-btn" data-diff="easy">Easy</button>
+      <button class="diff-btn active" data-diff="mid">Mid</button>
+      <button class="diff-btn" data-diff="hard">Hard</button>
+    </div>
+    <div id="finalScore">0</div>
+    <button id="startBtn">Start</button>
+  </div>
+
+<script>
+(function () {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const roundInfoEl = document.getElementById('roundInfo');
+  const comboEl = document.getElementById('combo');
+  const overlay = document.getElementById('overlay');
+  const title = document.getElementById('title');
+  const subtitle = document.getElementById('subtitle');
+  const finalScoreEl = document.getElementById('finalScore');
+  const startBtn = document.getElementById('startBtn');
+  const hint = document.getElementById('hint');
+  const diffBtns = document.querySelectorAll('.diff-btn');
+  const puIndicator = document.getElementById('powerupIndicator');
+
+  let W = 0, H = 0, dpr = 1;
+  let difficulty = 'mid';
+  let round = 1;
+  let totalScore = 0;
+
+  const DIFFICULTY_SETTINGS = {
+    easy: { opponentSpeed: 0.5, ballSpeedMult: 0.85, powerupFreq: 0.015, debuffFreq: 0.005 },
+    mid:  { opponentSpeed: 0.75, ballSpeedMult: 1.0, powerupFreq: 0.01, debuffFreq: 0.008 },
+    hard: { opponentSpeed: 1.0, ballSpeedMult: 1.2, powerupFreq: 0.008, debuffFreq: 0.012 }
+  };
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    layoutPaddles();
+  }
+
+  const state = {
+    player:   { x: 0, y: 0, w: 0, h: 0, targetX: 0, baseW: 0 },
+    opponent: { x: 0, y: 0, w: 0, h: 0, baseW: 0 },
+    ball:     { x: 0, y: 0, vx: 0, vy: 0, r: 0, trail: [], baseSpeed: 0 },
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    running: false,
+    launched: false,
+    lastTime: 0,
+    shake: 0,
+    flash: 0,
+    particles: [],
+    powerups: [],
+    debuffs: [],
+    activePowerups: {},
+    activeDebuffs: {}
+  };
+
+  function layoutPaddles() {
+    if (!W) return;
+    const paddleW = Math.max(80, Math.min(140, W * 0.24));
+    const paddleH = Math.max(10, Math.min(16, H * 0.018));
+    const margin = Math.max(40, H * 0.08);
+
+    state.player.baseW = paddleW;
+    state.player.w = paddleW;
+    state.player.h = paddleH;
+    state.player.y = H - margin;
+    if (state.player.targetX === undefined) state.player.targetX = W / 2 - paddleW / 2;
+    state.player.x = Math.max(0, Math.min(W - state.player.w, state.player.targetX));
+
+    state.opponent.baseW = paddleW;
+    state.opponent.w = paddleW;
+    state.opponent.h = paddleH;
+    state.opponent.y = margin - paddleH;
+    state.opponent.x = Math.max(0, Math.min(W - state.opponent.w, state.opponent.x || W / 2 - paddleW / 2));
+
+    state.ball.r = Math.max(7, Math.min(11, Math.min(W, H) * 0.014));
+  }
+
+  function resetBall() {
+    state.ball.x = state.player.x + state.player.w / 2;
+    state.ball.y = state.player.y - state.ball.r - 4;
+    state.ball.vx = 0;
+    state.ball.vy = 0;
+    state.ball.trail = [];
+    state.launched = false;
+  }
+
+  function launchBall() {
+    if (state.launched) return;
+    const angle = (Math.random() * 0.9 - 0.45);
+    const baseSpeed = Math.max(6.5, H * 0.009);
+    const speed = baseSpeed * DIFFICULTY_SETTINGS[difficulty].ballSpeedMult;
+    state.ball.baseSpeed = speed;
+    state.ball.vx = Math.sin(angle) * speed;
+    state.ball.vy = -Math.cos(angle) * speed;
+    state.launched = true;
+    hint.style.display = 'none';
+  }
+
+  function startGame() {
+    layoutPaddles();
+    state.score = 0;
+    state.combo = 0;
+    state.maxCombo = 0;
+    round = 1;
+    totalScore = 0;
+    scoreEl.textContent = '0';
+    roundInfoEl.textContent = 'Round 1';
+    state.player.targetX = W / 2 - state.player.w / 2;
+    state.player.x = state.player.targetX;
+    state.opponent.x = W / 2 - state.opponent.w / 2;
+    state.particles = [];
+    state.powerups = [];
+    state.debuffs = [];
+    state.activePowerups = {};
+    state.activeDebuffs = {};
+    updatePowerupIndicator();
+    resetBall();
+    state.running = true;
+    state.shake = 0;
+    state.flash = 0;
+    overlay.classList.add('hidden');
+    hint.style.display = '';
+    state.lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function gameOver() {
+    state.running = false;
+    state.shake = 18;
+    title.textContent = 'GAME OVER';
+    subtitle.textContent = `Round ${round} · Max Combo ${state.maxCombo}`;
+    finalScoreEl.style.display = 'block';
+    finalScoreEl.textContent = totalScore;
+    startBtn.textContent = 'Play Again';
+    overlay.classList.remove('hidden');
+  }
+
+  function nextRound() {
+    round++;
+    roundInfoEl.textContent = `Round ${round}`;
+    state.score = 0;
+    state.combo = 0;
+    state.player.w = state.player.baseW;
+    state.opponent.w = state.opponent.baseW;
+    state.activePowerups = {};
+    state.activeDebuffs = {};
+    updatePowerupIndicator();
+    resetBall();
+    state.flash = 1;
+  }
+
+  // --- Particles ---
+  function spawnParticles(x, y, color, count = 12) {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+      const speed = 2 + Math.random() * 4;
+      state.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        decay: 0.02 + Math.random() * 0.02,
+        size: 2 + Math.random() * 3,
+        color
+      });
+    }
+  }
+
+  function updateParticles(dt) {
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx * dt * 60;
+      p.y += p.vy * dt * 60;
+      p.vx *= 0.96;
+      p.vy *= 0.96;
+      p.life -= p.decay * dt * 60;
+      if (p.life <= 0) state.particles.splice(i, 1);
+    }
+  }
+
+  function drawParticles() {
+    for (const p of state.particles) {
+      ctx.fillStyle = p.color.replace('1)', `${p.life})`);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // --- Power-ups & Debuffs ---
+  const POWERUP_TYPES = [
+    { id: 'wide', icon: '↔', color: '#4ade80', name: 'Wide Paddle', duration: 8 },
+    { id: 'slow', icon: '⏱', color: '#60a5fa', name: 'Slow Ball', duration: 6 },
+    { id: 'magnet', icon: '🧲', color: '#a78bfa', name: 'Magnet', duration: 7 },
+    { id: 'shield', icon: '🛡', color: '#fbbf24', name: 'Shield', duration: 1 }
+  ];
+
+  const DEBUFF_TYPES = [
+    { id: 'narrow', icon: '↕', color: '#f87171', name: 'Narrow Paddle', duration: 6 },
+    { id: 'fast', icon: '⚡', color: '#fb923c', name: 'Fast Ball', duration: 5 },
+    { id: 'slippery', icon: '💧', color: '#22d3ee', name: 'Slippery', duration: 5 },
+    { id: 'opGrow', icon: '📈', color: '#e879f9', name: 'Opponent Grows', duration: 7 }
+  ];
+
+  function spawnPowerup() {
+    const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    const x = Math.random() * (W - 60) + 30;
+    const y = Math.random() * (H * 0.5) + H * 0.2;
+    state.powerups.push({
+      x, y, r: 18,
+      type,
+      pulse: 0,
+      life: 10
+    });
+  }
+
+  function spawnDebuff() {
+    const type = DEBUFF_TYPES[Math.floor(Math.random() * DEBUFF_TYPES.length)];
+    const x = Math.random() * (W - 60) + 30;
+    const y = Math.random() * (H * 0.5) + H * 0.2;
+    state.debuffs.push({
+      x, y, r: 18,
+      type,
+      pulse: 0,
+      life: 10
+    });
+  }
+
+  function applyPowerup(type) {
+    state.activePowerups[type.id] = type.duration;
+    updatePowerupIndicator();
+    
+    if (type.id === 'wide') state.player.w = state.player.baseW * 1.5;
+    if (type.id === 'shield') {
+      // Shield will be consumed on next miss
+    }
+    
+    spawnParticles(state.ball.x, state.ball.y, type.color + 'ff', 20);
+    state.flash = 0.5;
+  }
+
+  function applyDebuff(type) {
+    state.activeDebuffs[type.id] = type.duration;
+    updatePowerupIndicator();
+    
+    if (type.id === 'narrow') state.player.w = state.player.baseW * 0.6;
+    if (type.id === 'opGrow') state.opponent.w = state.opponent.baseW * 1.4;
+    
+    spawnParticles(state.ball.x, state.ball.y, type.color + 'ff', 20);
+    state.flash = 0.3;
+  }
+
+  function updatePowerups(dt) {
+    // Spawn
+    const settings = DIFFICULTY_SETTINGS[difficulty];
+    if (Math.random() < settings.powerupFreq * dt * 60 && state.powerups.length < 2) {
+      spawnPowerup();
+    }
+    if (Math.random() < settings.debuffFreq * dt * 60 && state.debuffs.length < 2) {
+      spawnDebuff();
+    }
+
+    // Update existing
+    for (let i = state.powerups.length - 1; i >= 0; i--) {
+      const pu = state.powerups[i];
+      pu.pulse += dt * 3;
+      pu.life -= dt;
+      
+      // Check collision with ball
+      const dx = state.ball.x - pu.x;
+      const dy = state.ball.y - pu.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < state.ball.r + pu.r) {
+        applyPowerup(pu.type);
+        state.powerups.splice(i, 1);
+        continue;
+      }
+      
+      if (pu.life <= 0) state.powerups.splice(i, 1);
+    }
+
+    for (let i = state.debuffs.length - 1; i >= 0; i--) {
+      const db = state.debuffs[i];
+      db.pulse += dt * 3;
+      db.life -= dt;
+      
+      const dx = state.ball.x - db.x;
+      const dy = state.ball.y - db.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < state.ball.r + db.r) {
+        applyDebuff(db.type);
+        state.debuffs.splice(i, 1);
+        continue;
+      }
+      
+      if (db.life <= 0) state.debuffs.splice(i, 1);
+    }
+
+    // Update active effects
+    for (const id in state.activePowerups) {
+      state.activePowerups[id] -= dt;
+      if (state.activePowerups[id] <= 0) {
+        delete state.activePowerups[id];
+        if (id === 'wide') state.player.w = state.player.baseW;
+        updatePowerupIndicator();
+      }
+    }
+
+    for (const id in state.activeDebuffs) {
+      state.activeDebuffs[id] -= dt;
+      if (state.activeDebuffs[id] <= 0) {
+        delete state.activeDebuffs[id];
+        if (id === 'narrow') state.player.w = state.player.baseW;
+        if (id === 'opGrow') state.opponent.w = state.opponent.baseW;
+        updatePowerupIndicator();
+      }
+    }
+  }
+
+  function updatePowerupIndicator() {
+    puIndicator.innerHTML = '';
+    for (const id in state.activePowerups) {
+      const type = POWERUP_TYPES.find(t => t.id === id);
+      if (type) {
+        const div = document.createElement('div');
+        div.className = 'pu-icon active';
+        div.style.background = type.color + '33';
+        div.style.border = `2px solid ${type.color}`;
+        div.textContent = type.icon;
+        puIndicator.appendChild(div);
+      }
+    }
+    for (const id in state.activeDebuffs) {
+      const type = DEBUFF_TYPES.find(t => t.id === id);
+      if (type) {
+        const div = document.createElement('div');
+        div.className = 'pu-icon active';
+        div.style.background = type.color + '33';
+        div.style.border = `2px solid ${type.color}`;
+        div.textContent = type.icon;
+        puIndicator.appendChild(div);
+      }
+    }
+  }
+
+  function drawPowerups() {
+    for (const pu of state.powerups) {
+      const pulse = 1 + Math.sin(pu.pulse) * 0.15;
+      const r = pu.r * pulse;
+      
+      // Glow
+      const glow = ctx.createRadialGradient(pu.x, pu.y, 0, pu.x, pu.y, r * 2);
+      glow.addColorStop(0, pu.type.color + 'aa');
+      glow.addColorStop(1, pu.type.color + '00');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(pu.x, pu.y, r * 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Core
+      ctx.fillStyle = pu.type.color;
+      ctx.beginPath();
+      ctx.arc(pu.x, pu.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Icon
+      ctx.fillStyle = '#fff';
+      ctx.font = `${r}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pu.type.icon, pu.x, pu.y);
+    }
+
+    for (const db of state.debuffs) {
+      const pulse = 1 + Math.sin(db.pulse) * 0.15;
+      const r = db.r * pulse;
+      
+      const glow = ctx.createRadialGradient(db.x, db.y, 0, db.x, db.y, r * 2);
+      glow.addColorStop(0, db.type.color + 'aa');
+      glow.addColorStop(1, db.type.color + '00');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(db.x, db.y, r * 2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = db.type.color;
+      ctx.beginPath();
+      ctx.arc(db.x, db.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = `${r}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(db.type.icon, db.x, db.y);
+    }
+  }
+
+  // --- Input ---
+  let pointerActive = false;
+  function movePointer(clientX) {
+    if (!state.running) return;
+    let target = clientX - state.player.w / 2;
+    
+    // Slippery debuff: reduced control
+    if (state.activeDebuffs.slippery) {
+      const currentCenter = state.player.x + state.player.w / 2;
+      const diff = target - currentCenter + state.player.w / 2;
+      target = currentCenter + diff * 0.5;
+    }
+    
+    state.player.targetX = Math.max(0, Math.min(W - state.player.w, target));
+    if (!state.launched) launchBall();
+  }
+
+  canvas.addEventListener('mousedown', e => { pointerActive = true; movePointer(e.clientX); });
+  window.addEventListener('mousemove', e => { if (pointerActive) movePointer(e.clientX); });
+  window.addEventListener('mouseup', () => pointerActive = false);
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches[0]) movePointer(e.touches[0].clientX);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches[0]) movePointer(e.touches[0].clientX);
+  }, { passive: false });
+  canvas.addEventListener('touchend', e => e.preventDefault(), { passive: false });
+
+  canvas.addEventListener('click', () => {
+    if (state.running && !state.launched) launchBall();
+  });
+
+  startBtn.addEventListener('click', startGame);
+  
+  diffBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      diffBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      difficulty = btn.dataset.diff;
+    });
+  });
+
+  window.addEventListener('resize', resize);
+
+  // --- Update ---
+  function update(dt) {
+    const lerp = 1 - Math.pow(0.001, dt);
+    state.player.x += (state.player.targetX - state.player.x) * lerp;
+
+    if (state.shake > 0) s
