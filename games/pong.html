@@ -11,16 +11,21 @@
     background: #06060f;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #fff;
-    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  #game { position: absolute; inset: 0; display: block; }
+  #game { 
+    position: absolute; 
+    inset: 0; 
+    display: block;
+    touch-action: none;
+  }
   #ui {
     position: absolute; top: 0; left: 0; right: 0;
     pointer-events: none; text-align: center;
     padding: max(16px, env(safe-area-inset-top)) 20px 0;
+    z-index: 5;
   }
   #score {
     font-size: clamp(40px, 10vw, 72px);
@@ -51,6 +56,7 @@
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 5;
   }
   #combo.show {
     opacity: 1;
@@ -62,6 +68,7 @@
     font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
     color: rgba(255,255,255,0.45); pointer-events: none;
     animation: pulse 2s ease-in-out infinite;
+    z-index: 5;
   }
   @keyframes pulse { 0%,100% { opacity: 0.45; } 50% { opacity: 0.8; } }
   #overlay {
@@ -71,7 +78,8 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     transition: opacity 0.4s ease;
-    z-index: 10;
+    z-index: 100;
+    pointer-events: auto;
   }
   #overlay.hidden { opacity: 0; pointer-events: none; }
   #overlay h1 {
@@ -117,6 +125,8 @@
     cursor: pointer;
     transition: all 0.25s ease;
     font-family: inherit;
+    pointer-events: auto;
+    touch-action: manipulation;
   }
   .diff-btn:hover {
     background: rgba(255,255,255,0.05);
@@ -140,6 +150,8 @@
     cursor: pointer;
     transition: all 0.25s ease;
     font-family: inherit;
+    pointer-events: auto;
+    touch-action: manipulation;
   }
   #startBtn:hover, #startBtn:active {
     background: rgba(255,255,255,0.08);
@@ -156,6 +168,7 @@
     display: flex;
     gap: 8px;
     pointer-events: none;
+    z-index: 5;
   }
   .pu-icon {
     width: 36px;
@@ -301,6 +314,7 @@
   }
 
   function startGame() {
+    console.log('Starting game...');
     layoutPaddles();
     state.score = 0;
     state.combo = 0;
@@ -617,28 +631,63 @@
     if (!state.launched) launchBall();
   }
 
-  canvas.addEventListener('mousedown', e => { pointerActive = true; movePointer(e.clientX); });
-  window.addEventListener('mousemove', e => { if (pointerActive) movePointer(e.clientX); });
+  canvas.addEventListener('mousedown', e => { 
+    pointerActive = true; 
+    movePointer(e.clientX); 
+  });
+  
+  window.addEventListener('mousemove', e => { 
+    if (pointerActive) movePointer(e.clientX); 
+  });
+  
   window.addEventListener('mouseup', () => pointerActive = false);
 
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     if (e.touches[0]) movePointer(e.touches[0].clientX);
   }, { passive: false });
+  
   canvas.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches[0]) movePointer(e.touches[0].clientX);
   }, { passive: false });
-  canvas.addEventListener('touchend', e => e.preventDefault(), { passive: false });
+  
+  canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+  }, { passive: false });
 
   canvas.addEventListener('click', () => {
     if (state.running && !state.launched) launchBall();
   });
 
-  startBtn.addEventListener('click', startGame);
+  startBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Start button clicked');
+    startGame();
+  });
   
+  startBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Start button touched');
+    startGame();
+  });
+
   diffBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Difficulty button clicked:', btn.dataset.diff);
+      diffBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      difficulty = btn.dataset.diff;
+    });
+    
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Difficulty button touched:', btn.dataset.diff);
       diffBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       difficulty = btn.dataset.diff;
@@ -652,4 +701,242 @@
     const lerp = 1 - Math.pow(0.001, dt);
     state.player.x += (state.player.targetX - state.player.x) * lerp;
 
-    if (state.shake > 0) s
+    if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 60);
+    if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 3);
+
+    updateParticles(dt);
+    updatePowerups(dt);
+
+    if (state.launched) {
+      state.ball.trail.push({ x: state.ball.x, y: state.ball.y });
+      if (state.ball.trail.length > 14) state.ball.trail.shift();
+
+      let speedMult = 1;
+      if (state.activePowerups.slow) speedMult *= 0.6;
+      if (state.activeDebuffs.fast) speedMult *= 1.4;
+
+      const step = dt * 60;
+      state.ball.x += state.ball.vx * step * speedMult;
+      state.ball.y += state.ball.vy * step * speedMult;
+
+      // Magnet effect
+      if (state.activePowerups.magnet && state.ball.vy > 0) {
+        const paddleCenter = state.player.x + state.player.w / 2;
+        const diff = paddleCenter - state.ball.x;
+        state.ball.vx += diff * 0.002 * step;
+      }
+
+      // Walls
+      if (state.ball.x - state.ball.r < 0) {
+        state.ball.x = state.ball.r;
+        state.ball.vx = Math.abs(state.ball.vx);
+        spawnParticles(state.ball.x, state.ball.y, 'rgba(122, 162, 255, 1)', 8);
+      } else if (state.ball.x + state.ball.r > W) {
+        state.ball.x = W - state.ball.r;
+        state.ball.vx = -Math.abs(state.ball.vx);
+        spawnParticles(state.ball.x, state.ball.y, 'rgba(122, 162, 255, 1)', 8);
+      }
+
+      // Opponent paddle
+      const op = state.opponent;
+      if (state.ball.vy < 0) {
+        const ballBottom = state.ball.y - state.ball.r;
+        if (ballBottom <= op.y + op.h && ballBottom >= op.y - Math.abs(state.ball.vy * step) - 2) {
+          if (state.ball.x + state.ball.r >= op.x && state.ball.x - state.ball.r <= op.x + op.w) {
+            state.ball.y = op.y + op.h + state.ball.r;
+            const aimX = state.player.x + state.player.w / 2 + (Math.random() - 0.5) * state.player.w * 0.9;
+            const dx = aimX - state.ball.x;
+            const dy = state.player.y - state.ball.y;
+            const speed = Math.hypot(state.ball.vx, state.ball.vy);
+            const len = Math.hypot(dx, dy) || 1;
+            state.ball.vx = (dx / len) * speed;
+            state.ball.vy = Math.abs((dy / len) * speed);
+            spawnParticles(state.ball.x, state.ball.y, 'rgba(255, 122, 162, 1)', 12);
+            state.shake = 3;
+          }
+        }
+      }
+
+      // Opponent AI
+      const opCenter = op.x + op.w / 2;
+      const targetOpX = state.ball.x - op.w / 2;
+      const opSpeed = Math.max(10, H * 0.02) * DIFFICULTY_SETTINGS[difficulty].opponentSpeed;
+      const diff = targetOpX - op.x;
+      const maxMove = opSpeed * step;
+      op.x += Math.sign(diff) * Math.min(Math.abs(diff), maxMove);
+      op.x = Math.max(0, Math.min(W - op.w, op.x));
+
+      // Player paddle
+      const pl = state.player;
+      if (state.ball.vy > 0) {
+        const ballTop = state.ball.y + state.ball.r;
+        if (ballTop >= pl.y && ballTop <= pl.y + pl.h + Math.abs(state.ball.vy * step) + 2) {
+          if (state.ball.x + state.ball.r >= pl.x && state.ball.x - state.ball.r <= pl.x + pl.w) {
+            state.ball.y = pl.y - state.ball.r;
+            const hit = (state.ball.x - (pl.x + pl.w / 2)) / (pl.w / 2);
+            const maxAngle = Math.PI / 3;
+            const angle = hit * maxAngle;
+            const curSpeed = Math.hypot(state.ball.vx, state.ball.vy);
+            const newSpeed = Math.min(curSpeed * 1.045, H * 0.028);
+            state.ball.vx = Math.sin(angle) * newSpeed;
+            state.ball.vy = -Math.cos(angle) * newSpeed;
+            
+            state.score++;
+            totalScore++;
+            state.combo++;
+            if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+            
+            scoreEl.textContent = state.score;
+            scoreEl.classList.remove('pop');
+            void scoreEl.offsetWidth;
+            scoreEl.classList.add('pop');
+            
+            spawnParticles(state.ball.x, state.ball.y, 'rgba(122, 162, 255, 1)', 15);
+            state.shake = 6;
+            state.flash = 0.3;
+
+            // Combo display
+            if (state.combo >= 3) {
+              comboEl.textContent = `${state.combo}x COMBO`;
+              comboEl.classList.add('show');
+              setTimeout(() => comboEl.classList.remove('show'), 800);
+            }
+
+            // Round progression (every 10 hits)
+            if (state.score > 0 && state.score % 10 === 0) {
+              nextRound();
+            }
+          }
+        }
+      }
+
+      // Missed
+      if (state.ball.y - state.ball.r > H + 20) {
+        // Shield check
+        if (state.activePowerups.shield) {
+          delete state.activePowerups.shield;
+          updatePowerupIndicator();
+          resetBall();
+          state.flash = 0.5;
+          spawnParticles(state.player.x + state.player.w / 2, state.player.y, 'rgba(251, 191, 36, 1)', 25);
+        } else {
+          state.combo = 0;
+          gameOver();
+        }
+      }
+    } else {
+      state.ball.x = state.player.x + state.player.w / 2;
+      state.ball.y = state.player.y - state.ball.r - 4;
+    }
+  }
+
+  // --- Draw ---
+  function drawBackground() {
+    const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.75);
+    g.addColorStop(0, '#151530');
+    g.addColorStop(1, '#05050d');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(120, 140, 220, 0.05)';
+    ctx.lineWidth = 1;
+    const step = 40;
+    ctx.beginPath();
+    for (let x = 0; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = 0; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(150, 170, 255, 0.18)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 14]);
+    ctx.beginPath();
+    ctx.moveTo(0, H / 2);
+    ctx.lineTo(W, H / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawPaddle(p, c1, c2, glow) {
+    const r = p.h / 2;
+    ctx.save();
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 22;
+    const g = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+    g.addColorStop(0, c1);
+    g.addColorStop(1, c2);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(p.x, p.y, p.w, p.h, r);
+    else ctx.rect(p.x, p.y, p.w, p.h);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBall() {
+    const b = state.ball;
+    for (let i = 0; i < b.trail.length; i++) {
+      const t = b.trail[i];
+      const k = (i + 1) / b.trail.length;
+      ctx.fillStyle = `rgba(192, 132, 252, ${k * 0.35})`;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, b.r * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const glow = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 3);
+    glow.addColorStop(0, 'rgba(255,255,255,0.9)');
+    glow.addColorStop(0.3, 'rgba(192, 132, 252, 0.6)');
+    glow.addColorStop(1, 'rgba(192, 132, 252, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r * 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function draw() {
+    ctx.save();
+    if (state.shake > 0) {
+      const s = state.shake;
+      ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+    }
+    drawBackground();
+    drawPowerups();
+    drawPaddle(state.opponent, '#ff8fb3', '#d64a73', '#ff7aa2');
+    drawPaddle(state.player,   '#8fb3ff', '#4a6fd6', '#7aa2ff');
+    drawBall();
+    drawParticles();
+    ctx.restore();
+
+    // Flash overlay
+    if (state.flash > 0) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${state.flash * 0.15})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function loop(now) {
+    if (!state.running && state.shake <= 0) { draw(); return; }
+    const dt = Math.min((now - state.lastTime) / 1000, 0.05);
+    state.lastTime = now;
+    if (state.running) update(dt);
+    else state.shake = Math.max(0, state.shake - dt * 60);
+    draw();
+    if (state.running || state.shake > 0) requestAnimationFrame(loop);
+  }
+
+  // Initial
+  resize();
+  state.player.targetX = W / 2 - state.player.w / 2;
+  state.player.x = state.player.targetX;
+  state.opponent.x = W / 2 - state.opponent.w / 2;
+  resetBall();
+  draw();
+  
+  console.log('Game initialized. Difficulty:', difficulty);
+})();
+</script>
+</body>
+</html>
