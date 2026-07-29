@@ -267,7 +267,9 @@
     powerups: [],
     debuffs: [],
     activePowerups: {},
-    activeDebuffs: {}
+    activeDebuffs: {},
+    gameTime: 0,
+    nextSpawnTime: 0
   };
 
   function layoutPaddles() {
@@ -321,6 +323,8 @@
     state.maxCombo = 0;
     round = 1;
     totalScore = 0;
+    state.gameTime = 0;
+    state.nextSpawnTime = 4 + Math.random() * 2; // 4 to 6 seconds initial delay
     scoreEl.textContent = '0';
     roundInfoEl.textContent = 'Round 1';
     state.player.targetX = W / 2 - state.player.w / 2;
@@ -449,9 +453,6 @@
     updatePowerupIndicator();
     
     if (type.id === 'wide') state.player.w = state.player.baseW * 1.5;
-    if (type.id === 'shield') {
-      // Shield will be consumed on next miss
-    }
     
     spawnParticles(state.ball.x, state.ball.y, type.color + 'ff', 20);
     state.flash = 0.5;
@@ -469,13 +470,24 @@
   }
 
   function updatePowerups(dt) {
-    // Spawn
-    const settings = DIFFICULTY_SETTINGS[difficulty];
-    if (Math.random() < settings.powerupFreq * dt * 60 && state.powerups.length < 2) {
-      spawnPowerup();
-    }
-    if (Math.random() < settings.debuffFreq * dt * 60 && state.debuffs.length < 2) {
-      spawnDebuff();
+    state.gameTime += dt;
+
+    // Spawn logic with delayed start and scaling limits
+    if (state.gameTime > state.nextSpawnTime) {
+      const settings = DIFFICULTY_SETTINGS[difficulty];
+      
+      // Initially 1 at a time, later stage (>15s) up to 4 total (e.g., 2 powerups + 2 debuffs)
+      const maxTotal = state.gameTime > 15 ? 4 : 1;
+      const currentTotal = state.powerups.length + state.debuffs.length;
+      
+      if (currentTotal < maxTotal) {
+        if (Math.random() < settings.powerupFreq * dt * 60 && state.powerups.length < 2) {
+          spawnPowerup();
+        }
+        if (Math.random() < settings.debuffFreq * dt * 60 && state.debuffs.length < 2) {
+          spawnDebuff();
+        }
+      }
     }
 
     // Update existing
