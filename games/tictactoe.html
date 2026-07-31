@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Tic-Tac-Toe</title>
+<style>
+  :root {
+    --primary: #1976d2;
+    --primary-dark: #1565c0;
+    --primary-light: #e3f2fd;
+    --accent: #2196f3;
+    --text: #263238;
+    --text-muted: #607d8b;
+    --bg: #f5f9ff;
+    --card: #ffffff;
+    --x-color: #1976d2;
+    --o-color: #0d47a1;
+    --win-color: #4caf50;
+    --shadow: 0 8px 24px rgba(25, 118, 210, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: linear-gradient(135deg, #e3f2fd 0%, #f5f9ff 50%, #ffffff 100%);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  header {
+    text-align: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.6rem, 5vw, 2rem);
+    font-weight: 700;
+    color: var(--primary-dark);
+    letter-spacing: 0.5px;
+  }
+
+  .subtitle {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .status {
+    width: 100%;
+    text-align: center;
+    padding: 14px 18px;
+    background: var(--card);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--text);
+    transition: background 0.3s ease, color 0.3s ease, transform 0.2s ease;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .status.win {
+    background: var(--win-color);
+    color: #fff;
+  }
+
+  .status.lose {
+    background: #ef5350;
+    color: #fff;
+  }
+
+  .status.draw {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .board {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 10px;
+    padding: 14px;
+    background: var(--card);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .cell {
+    position: relative;
+    background: var(--primary-light);
+    border: none;
+    border-radius: 14px;
+    font-size: clamp(2.5rem, 10vw, 3.8rem);
+    font-weight: 700;
+    color: var(--primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    user-select: none;
+    outline: none;
+    -webkit-user-select: none;
+  }
+
+  .cell:hover:not(:disabled) {
+    background: #d0e7fb;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(25, 118, 210, 0.18);
+  }
+
+  .cell:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+  }
+
+  .cell:disabled {
+    cursor: default;
+  }
+
+  .cell.x {
+    color: var(--x-color);
+  }
+
+  .cell.o {
+    color: var(--o-color);
+  }
+
+  .cell.win {
+    background: var(--win-color);
+    color: #fff;
+    animation: pulse 0.8s ease;
+  }
+
+  .cell .mark {
+    display: inline-block;
+    animation: pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes pop {
+    0% { transform: scale(0.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.25);
+  }
+
+  .btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(25, 118, 210, 0.35);
+  }
+
+  .btn:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .btn.secondary {
+    background: #fff;
+    color: var(--primary);
+    border: 2px solid var(--primary-light);
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
+  }
+
+  .btn.secondary:hover {
+    background: var(--primary-light);
+  }
+
+  footer {
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  @media (max-width: 360px) {
+    .board { gap: 8px; padding: 10px; }
+    .status { font-size: 0.95rem; padding: 12px 14px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Tic-Tac-Toe</h1>
+      <p class="subtitle">You are X — beat the AI!</p>
+    </header>
+
+    <div id="status" class="status">Your turn</div>
+
+    <div id="board" class="board" aria-label="Tic-Tac-Toe board"></div>
+
+    <div class="controls">
+      <button id="restart" class="btn">Restart</button>
+    </div>
+
+    <footer>Tap a square to play. Good luck!</footer>
+  </div>
+
+<script>
+(function () {
+  const HUMAN = 'X';
+  const AI = 'O';
+  const WIN_LINES = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+    [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
+    [0, 4, 8], [2, 4, 6]             // diagonals
+  ];
+
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const restartBtn = document.getElementById('restart');
+
+  let board;
+  let gameOver;
+  let aiThinking;
+
+  function init() {
+    board = Array(9).fill('');
+    gameOver = false;
+    aiThinking = false;
+    renderBoard();
+    setStatus('Your turn', '');
+  }
+
+  function renderBoard() {
+    boardEl.innerHTML = '';
+    for (let i = 0; i < 9; i++) {
+      const cell = document.createElement('button');
+      cell.className = 'cell';
+      cell.dataset.index = i;
+      cell.setAttribute('aria-label', `Cell ${i + 1}, empty`);
+      cell.addEventListener('click', onCellClick);
+      boardEl.appendChild(cell);
+    }
+  }
+
+  function onCellClick(e) {
+    if (gameOver || aiThinking) return;
+    const idx = Number(e.currentTarget.dataset.index);
+    if (board[idx] !== '') return;
+
+    makeMove(idx, HUMAN);
+    const result = checkResult(board);
+    if (result) {
+      endGame(result);
+      return;
+    }
+
+    aiThinking = true;
+    setStatus("AI is thinking…", '');
+    // Small delay for a natural feel
+    setTimeout(aiMove, 350);
+  }
+
+  function makeMove(idx, player) {
+    board[idx] = player;
+    const cell = boardEl.children[idx];
+    cell.disabled = true;
+    cell.classList.add(player === HUMAN ? 'x' : 'o');
+    cell.setAttribute('aria-label', `Cell ${idx + 1}, ${player}`);
+    const span = document.createElement('span');
+    span.className = 'mark';
+    span.textContent = player;
+    cell.appendChild(span);
+  }
+
+  function aiMove() {
+    const move = chooseAiMove(board);
+    makeMove(move, AI);
+    aiThinking = false;
+    const result = checkResult(board);
+    if (result) {
+      endGame(result);
+      return;
+    }
+    setStatus('Your turn', '');
+  }
+
+  // Simple but decent AI:
+  // 1. Win if possible
+  // 2. Block opponent's win
+  // 3. Take center
+  // 4. Take a corner
+  // 5. Take any side
+  function chooseAiMove(b) {
+    const empty = b.map((v, i) => v === '' ? i : -1).filter(i => i !== -1);
+
+    // 1. Win
+    for (const i of empty) {
+      b[i] = AI;
+      if (findWinner(b) === AI) { b[i] = ''; return i; }
+      b[i] = '';
+    }
+    // 2. Block
+    for (const i of empty) {
+      b[i] = HUMAN;
+      if (findWinner(b) === HUMAN) { b[i] = ''; return i; }
+      b[i] = '';
+    }
+    // 3. Center
+    if (b[4] === '') return 4;
+    // 4. Corner
+    const corners = [0, 2, 6, 8].filter(i => b[i] === '');
+    if (corners.length) return corners[Math.floor(Math.random() * corners.length)];
+    // 5. Any
+    return empty[Math.floor(Math.random() * empty.length)];
+  }
+
+  function findWinner(b) {
+    for (const [a, c, d] of WIN_LINES) {
+      if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
+    }
+    return null;
+  }
+
+  function findWinningLine(b) {
+    for (const line of WIN_LINES) {
+      const [a, c, d] = line;
+      if (b[a] && b[a] === b[c] && b[a] === b[d]) return line;
+    }
+    return null;
+  }
+
+  function checkResult(b) {
+    const winner = findWinner(b);
+    if (winner) return { type: 'winner', player: winner, line: findWinningLine(b) };
+    if (b.every(v => v !== '')) return { type: 'draw' };
+    return null;
+  }
+
+  function endGame(result) {
+    gameOver = true;
+    // Disable all cells
+    for (const cell of boardEl.children) cell.disabled = true;
+
+    if (result.type === 'winner') {
+      result.line.forEach(i => boardEl.children[i].classList.add('win'));
+      if (result.player === HUMAN) {
+        setStatus('You win! 🎉', 'win');
+      } else {
+        setStatus('AI wins. Try again!', 'lose');
+      }
+    } else {
+      setStatus("It's a draw!", 'draw');
+    }
+  }
+
+  function setStatus(text, variant) {
+    statusEl.textContent = text;
+    statusEl.classList.remove('win', 'lose', 'draw');
+    if (variant) statusEl.classList.add(variant);
+  }
+
+  restartBtn.addEventListener('click', init);
+
+  init();
+})();
+</script>
+</body>
+</html>
