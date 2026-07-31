@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>Tic-Tac-Toe</title>
+<title>Neon Tic-Tac-Toe</title>
 <style>
   :root {
-    --primary: #1976d2;
-    --primary-dark: #1565c0;
-    --primary-light: #e3f2fd;
-    --accent: #2196f3;
-    --text: #263238;
-    --text-muted: #607d8b;
-    --bg: #f5f9ff;
-    --card: #ffffff;
-    --x-color: #1976d2;
-    --o-color: #0d47a1;
-    --win-color: #4caf50;
-    --shadow: 0 8px 24px rgba(25, 118, 210, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+    --bg-dark: #0a0a1a;
+    --bg-card: #1a1a2e;
+    --bg-cell: #16213e;
+    --neon-cyan: #00ffff;
+    --neon-magenta: #ff00ff;
+    --neon-green: #00ff00;
+    --neon-blue: #0080ff;
+    --text-light: #e0e0e0;
+    --text-muted: #888;
+    --shadow-cyan: 0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
+    --shadow-magenta: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3);
+    --shadow-green: 0 0 10px rgba(0, 255, 0, 0.5), 0 0 20px rgba(0, 255, 0, 0.3);
   }
 
   * {
@@ -30,8 +30,8 @@
     padding: 0;
     min-height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: linear-gradient(135deg, #e3f2fd 0%, #f5f9ff 50%, #ffffff 100%);
-    color: var(--text);
+    background: var(--bg-dark);
+    color: var(--text-light);
     -webkit-font-smoothing: antialiased;
   }
 
@@ -42,6 +42,7 @@
     justify-content: center;
     min-height: 100vh;
     padding: 20px;
+    background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a1a 100%);
   }
 
   .app {
@@ -50,7 +51,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 24px;
+    gap: 20px;
   }
 
   header {
@@ -59,29 +60,62 @@
 
   h1 {
     margin: 0;
-    font-size: clamp(1.6rem, 5vw, 2rem);
+    font-size: clamp(1.8rem, 6vw, 2.4rem);
     font-weight: 700;
-    color: var(--primary-dark);
-    letter-spacing: 0.5px;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4);
+    letter-spacing: 2px;
   }
 
   .subtitle {
     margin: 6px 0 0;
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .mode-selector {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid var(--neon-blue);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-light);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 8px rgba(0, 128, 255, 0.3);
+  }
+
+  .mode-btn:hover {
+    background: rgba(0, 128, 255, 0.1);
+    box-shadow: 0 0 12px rgba(0, 128, 255, 0.5);
+  }
+
+  .mode-btn.active {
+    background: var(--neon-blue);
+    color: #fff;
+    box-shadow: var(--shadow-cyan);
   }
 
   .status {
     width: 100%;
     text-align: center;
     padding: 14px 18px;
-    background: var(--card);
-    border-radius: 14px;
-    box-shadow: var(--shadow);
+    background: var(--bg-card);
+    border: 2px solid var(--neon-blue);
+    border-radius: 12px;
     font-size: 1.05rem;
-    font-weight: 500;
-    color: var(--text);
-    transition: background 0.3s ease, color 0.3s ease, transform 0.2s ease;
+    font-weight: 600;
+    color: var(--text-light);
+    box-shadow: 0 0 15px rgba(0, 128, 255, 0.3);
+    transition: all 0.3s ease;
     min-height: 52px;
     display: flex;
     align-items: center;
@@ -89,18 +123,21 @@
   }
 
   .status.win {
-    background: var(--win-color);
-    color: #fff;
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+    box-shadow: var(--shadow-green);
   }
 
   .status.lose {
-    background: #ef5350;
-    color: #fff;
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+    box-shadow: var(--shadow-magenta);
   }
 
   .status.draw {
-    background: var(--primary);
-    color: #fff;
+    border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
+    box-shadow: var(--shadow-cyan);
   }
 
   .board {
@@ -111,37 +148,38 @@
     grid-template-rows: repeat(3, 1fr);
     gap: 10px;
     padding: 14px;
-    background: var(--card);
-    border-radius: 20px;
-    box-shadow: var(--shadow);
+    background: var(--bg-card);
+    border: 2px solid var(--neon-blue);
+    border-radius: 16px;
+    box-shadow: 0 0 20px rgba(0, 128, 255, 0.3);
   }
 
   .cell {
     position: relative;
-    background: var(--primary-light);
-    border: none;
-    border-radius: 14px;
+    background: var(--bg-cell);
+    border: 2px solid rgba(0, 128, 255, 0.3);
+    border-radius: 12px;
     font-size: clamp(2.5rem, 10vw, 3.8rem);
     font-weight: 700;
-    color: var(--primary);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    transition: all 0.2s ease;
     user-select: none;
     outline: none;
     -webkit-user-select: none;
   }
 
   .cell:hover:not(:disabled) {
-    background: #d0e7fb;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 14px rgba(25, 118, 210, 0.18);
+    background: rgba(0, 128, 255, 0.1);
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 15px rgba(0, 128, 255, 0.4);
+    transform: scale(1.02);
   }
 
   .cell:active:not(:disabled) {
-    transform: translateY(0) scale(0.97);
+    transform: scale(0.97);
   }
 
   .cell:disabled {
@@ -149,22 +187,31 @@
   }
 
   .cell.x {
-    color: var(--x-color);
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
   }
 
   .cell.o {
-    color: var(--o-color);
+    color: var(--neon-magenta);
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.8), 0 0 20px rgba(255, 0, 255, 0.4);
+    border-color: var(--neon-magenta);
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
   }
 
   .cell.win {
-    background: var(--win-color);
-    color: #fff;
-    animation: pulse 0.8s ease;
+    background: rgba(0, 255, 0, 0.15);
+    border-color: var(--neon-green);
+    color: var(--neon-green) !important;
+    text-shadow: 0 0 15px rgba(0, 255, 0, 1), 0 0 30px rgba(0, 255, 0, 0.6) !important;
+    box-shadow: var(--shadow-green);
+    animation: pulse 0.8s ease infinite;
   }
 
   .cell .mark {
     display: inline-block;
-    animation: pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   @keyframes pop {
@@ -186,37 +233,26 @@
   .btn {
     flex: 1;
     padding: 14px 20px;
-    border: none;
-    border-radius: 12px;
-    background: var(--primary);
-    color: #fff;
+    border: 2px solid var(--neon-cyan);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--neon-cyan);
     font-size: 1rem;
     font-weight: 600;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.25);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
   }
 
   .btn:hover {
-    background: var(--primary-dark);
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow: var(--shadow-cyan);
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(25, 118, 210, 0.35);
   }
 
   .btn:active {
     transform: translateY(0) scale(0.98);
-  }
-
-  .btn.secondary {
-    background: #fff;
-    color: var(--primary);
-    border: 2px solid var(--primary-light);
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.1);
-  }
-
-  .btn.secondary:hover {
-    background: var(--primary-light);
   }
 
   footer {
@@ -229,15 +265,21 @@
   @media (max-width: 360px) {
     .board { gap: 8px; padding: 10px; }
     .status { font-size: 0.95rem; padding: 12px 14px; }
+    .mode-btn { font-size: 0.85rem; padding: 10px 12px; }
   }
 </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>Tic-Tac-Toe</h1>
-      <p class="subtitle">You are X — beat the AI!</p>
+      <h1>NEON TIC-TAC-TOE</h1>
+      <p class="subtitle">Choose your mode and play!</p>
     </header>
+
+    <div class="mode-selector">
+      <button id="mode-pvp" class="mode-btn">VS Player</button>
+      <button id="mode-ai" class="mode-btn active">VS AI</button>
+    </div>
 
     <div id="status" class="status">Your turn</div>
 
@@ -263,17 +305,29 @@
   const boardEl = document.getElementById('board');
   const statusEl = document.getElementById('status');
   const restartBtn = document.getElementById('restart');
+  const modePvpBtn = document.getElementById('mode-pvp');
+  const modeAiBtn = document.getElementById('mode-ai');
 
   let board;
   let gameOver;
   let aiThinking;
+  let currentPlayer;
+  let mode; // 'pvp' or 'ai'
 
   function init() {
     board = Array(9).fill('');
     gameOver = false;
     aiThinking = false;
+    currentPlayer = HUMAN;
     renderBoard();
-    setStatus('Your turn', '');
+    updateStatus();
+  }
+
+  function setMode(newMode) {
+    mode = newMode;
+    modePvpBtn.classList.toggle('active', mode === 'pvp');
+    modeAiBtn.classList.toggle('active', mode === 'ai');
+    init();
   }
 
   function renderBoard() {
@@ -293,17 +347,21 @@
     const idx = Number(e.currentTarget.dataset.index);
     if (board[idx] !== '') return;
 
-    makeMove(idx, HUMAN);
+    makeMove(idx, currentPlayer);
     const result = checkResult(board);
     if (result) {
       endGame(result);
       return;
     }
 
-    aiThinking = true;
-    setStatus("AI is thinking…", '');
-    // Small delay for a natural feel
-    setTimeout(aiMove, 350);
+    if (mode === 'ai' && currentPlayer === HUMAN) {
+      aiThinking = true;
+      updateStatus();
+      setTimeout(aiMove, 350);
+    } else {
+      currentPlayer = currentPlayer === HUMAN ? AI : HUMAN;
+      updateStatus();
+    }
   }
 
   function makeMove(idx, player) {
@@ -327,15 +385,10 @@
       endGame(result);
       return;
     }
-    setStatus('Your turn', '');
+    currentPlayer = HUMAN;
+    updateStatus();
   }
 
-  // Simple but decent AI:
-  // 1. Win if possible
-  // 2. Block opponent's win
-  // 3. Take center
-  // 4. Take a corner
-  // 5. Take any side
   function chooseAiMove(b) {
     const empty = b.map((v, i) => v === '' ? i : -1).filter(i => i !== -1);
 
@@ -384,18 +437,32 @@
 
   function endGame(result) {
     gameOver = true;
-    // Disable all cells
     for (const cell of boardEl.children) cell.disabled = true;
 
     if (result.type === 'winner') {
       result.line.forEach(i => boardEl.children[i].classList.add('win'));
-      if (result.player === HUMAN) {
-        setStatus('You win! 🎉', 'win');
+      if (mode === 'ai') {
+        if (result.player === HUMAN) {
+          setStatus('You win! 🎉', 'win');
+        } else {
+          setStatus('AI wins. Try again!', 'lose');
+        }
       } else {
-        setStatus('AI wins. Try again!', 'lose');
+        setStatus(`Player ${result.player} wins! 🎉`, 'win');
       }
     } else {
       setStatus("It's a draw!", 'draw');
+    }
+  }
+
+  function updateStatus() {
+    if (gameOver) return;
+    if (aiThinking) {
+      setStatus('AI is thinking…', '');
+    } else if (mode === 'ai') {
+      setStatus('Your turn', '');
+    } else {
+      setStatus(`Player ${currentPlayer}'s turn`, '');
     }
   }
 
@@ -406,7 +473,10 @@
   }
 
   restartBtn.addEventListener('click', init);
+  modePvpBtn.addEventListener('click', () => setMode('pvp'));
+  modeAiBtn.addEventListener('click', () => setMode('ai'));
 
+  mode = 'ai';
   init();
 })();
 </script>
